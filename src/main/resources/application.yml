@@ -7,4 +7,5 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
 kafka:
   firstGroup: group_id
-  testTopic: users
+  testTopic: test
+  usersTopic: users

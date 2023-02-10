@@ -21,4 +21,5 @@ public class KafkaConfiguration {
 
     private String firstGroup;
     private String testTopic;
+    private String usersTopic;
 }
