@@ -4,13 +4,19 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.example</groupId>
-    <artifactId>untitled</artifactId>
+    <groupId>com.cisco.josouthe</groupId>
+    <artifactId>simple-kafka-app</artifactId>
     <version>1.0-SNAPSHOT</version>
 
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.0.2</version>
+    </parent>
+
     <properties>
-        <maven.compiler.source>15</maven.compiler.source>
-        <maven.compiler.target>15</maven.compiler.target>
+        <maven.compiler.source>19</maven.compiler.source>
+        <maven.compiler.target>19</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -36,6 +42,11 @@
             <artifactId>spring-boot-starter</artifactId>
             <version>3.0.2</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>5.2.21.RELEASE</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka -->
         <dependency>
             <groupId>org.apache.kafka</groupId>
@@ -53,7 +64,6 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-server-common</artifactId>
             <version>3.4.0</version>
-            <scope>runtime</scope>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.springframework.kafka/spring-kafka -->
         <dependency>
@@ -72,7 +82,132 @@
             <artifactId>lombok</artifactId>
             <version>1.18.26</version>
         </dependency>
+        <!-- Override SLF4J provided by Spring Boot -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.30</version>
+        </dependency>
 
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unpack</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.appdynamics.agent</groupId>
+                                    <artifactId>agent-api</artifactId>
+                                    <type>jar</type>
+                                    <includes>com/appdynamics/agent/api/AppdynamicsAgent.class</includes>
+                                    <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <includes>
+                        <include>**/*.class</include>
+                        <include>**/*</include>
+                    </includes>
+                    <outputDirectory>${basedir}</outputDirectory>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                            <goal>build-classpath</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+
+                            <!-- These properties are for build-classpath. It creates a classpath for the copied
+                                 dependencies and puts it in the ${distro.classpath} property. The jar Class-Path
+                                 uses spaces as separators. Unfortunately <pathSeparator> configuration property
+                                 does not work with a space as value, so the pathSeparator is set to a character
+                                 here and this is then replaced later using the regex-property plugin. -->
+                            <prefix>lib</prefix>
+                            <outputProperty>distro.classpath</outputProperty>
+                            <pathSeparator>:</pathSeparator>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>regex-property</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Here the value of property for the jar the Class-Path is replaced to have a space
+                                 as separator. Unfortunately <replacement> does not work if a single space if specified
+                                 so this uses the surrounding .jar and lib to provide some content. -->
+                            <name>distro.classpath.replaced</name>
+                            <value>${distro.classpath}</value>
+                            <regex>[.]jar[:]lib</regex>
+                            <replacement>.jar lib</replacement>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.cisco.josouthe.ETLControlMain</mainClass>
+                        </manifest>
+                        <manifestEntries>
+                            <!-- Include the computed classpath with all copied dependencies in the jar here -->
+                            <Class-Path>${distro.classpath.replaced} .</Class-Path>
+                        </manifestEntries>
+                    </archive>
+                    <includes>
+                        <include>**/*</include>
+                    </includes>
+                    <outputDirectory>${basedir}</outputDirectory>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
