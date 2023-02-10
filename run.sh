@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-if[ ! -f ./JavaAgent/javaagent.jar ]; then
+if [ ! -f ./JavaAgent/javaagent.jar ]; then
     echo "./JavaAgent/javaagent.jar not found!"
     exit
 fi
